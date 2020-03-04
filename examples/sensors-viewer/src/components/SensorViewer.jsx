@@ -11,14 +11,15 @@ import {
 } from "react-bootstrap";
 import CredentialsModal from "./CredentialsModal";
 import SensorItem from "./SensorItem";
+
 import {
-  constant,
-  getDeviceDataByAlias,
-  getDeviceDataById,
-  getInterfaceById,
-  isMissingCredentials
+  ApiHandler,
+  getAuthToken,
+  getEndPoint,
+  getRealmName
 } from "../apiHandler";
 
+const apiHandler = new ApiHandler();
 const _ = require("lodash");
 
 class SensorViewer extends Component {
@@ -33,8 +34,12 @@ class SensorViewer extends Component {
     fetched: false
   };
 
+  isMissingCredentials() {
+    return !(getEndPoint() && getAuthToken() && getRealmName());
+  }
+
   componentDidMount() {
-    if (isMissingCredentials()) this.setState({ visible: true });
+    if (this.isMissingCredentials()) this.setState({ visible: true });
   }
 
   handleChange = e => {
@@ -49,12 +54,6 @@ class SensorViewer extends Component {
     }
   };
 
-  checkDeviceType = value => {
-    const expression = new RegExp(/[a-z]?[A-Z]?[0-9]?-?_?/i);
-    if (value.length === 22) if (expression.test(value)) return constant.ID;
-    return constant.ALIAS;
-  };
-
   handleError(err) {
     if (err.response.status === 403)
       this.setState({ visible: true, loading: false });
@@ -67,20 +66,15 @@ class SensorViewer extends Component {
   handleSubmit = () => {
     const { deviceID } = this.state;
     if (deviceID) {
-      const type = this.checkDeviceType(deviceID);
       this.setState({
         loading: true,
-        availableSensors: {},
-        sensorValues: {},
-        sensorSamplingRate: {},
         fetched: false,
         notFound: false
       });
-      if (type === constant.ID) {
-        this.setDeviceDataById(deviceID);
-      } else {
-        this.setDeviceDataByAlias(deviceID);
-      }
+      apiHandler
+        .getDevice(deviceID)
+        .then(response => this.setInterfaces(response))
+        .catch(error => this.handleError(error));
     }
   };
 
@@ -91,29 +85,17 @@ class SensorViewer extends Component {
       loading: false,
       fetched: true
     });
-    getInterfaceById(id, res.interfaces[res.availableIndex]).then(response => {
+    apiHandler.getInterfaceById(id, res.availableInterface).then(response => {
       this.setState({ availableSensors: response });
     });
-    getInterfaceById(id, res.interfaces[res.valueIndex]).then(response => {
+    apiHandler.getInterfaceById(id, res.valueInterface).then(response => {
       this.setState({ sensorValues: response });
     });
-    getInterfaceById(id, res.interfaces[res.samplingRateIndex]).then(
-      response => {
+    apiHandler
+      .getInterfaceById(id, res.samplingRateInterface)
+      .then(response => {
         this.setState({ sensorSamplingRate: response });
-      }
-    );
-  };
-
-  setDeviceDataById = (id, params = {}) => {
-    getDeviceDataById(id, params)
-      .then(res => this.setInterfaces(res))
-      .catch(err => this.handleError(err));
-  };
-
-  setDeviceDataByAlias = (alias, params = {}) => {
-    getDeviceDataByAlias(alias, params)
-      .then(res => this.setInterfaces(res))
-      .catch(err => this.handleError(err));
+      });
   };
 
   render() {

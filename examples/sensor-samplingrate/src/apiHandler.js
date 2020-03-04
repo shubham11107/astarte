@@ -1,5 +1,6 @@
 import { reverse } from "named-urls";
 import axios from "axios";
+import Device from "./device";
 
 const ENDPOINT = {
   device_alias: "devices-by-alias/:device_alias/",
@@ -15,6 +16,7 @@ export default class ApiHandler {
     this.endpoint = new URL(endpoint);
     this.realm = realm;
     this.version = version;
+    this.socket = null;
   }
 
   getDevice(device) {
@@ -40,15 +42,6 @@ export default class ApiHandler {
     );
   }
 
-  getWSUrl() {
-    const websocketUrl = new URL(
-      `/appengine/${this.version}/socket`,
-      this.endpoint
-    );
-    websocketUrl.protocol = "wss:";
-    return websocketUrl;
-  }
-
   GET(url, params) {
     return axios.get(url, { headers: this.getHeaders(), params: params });
   }
@@ -57,23 +50,38 @@ export default class ApiHandler {
     return axios.put(url, params, { headers: this.getHeaders() });
   }
 
+  DELETE(url) {
+    return axios.delete(url, { headers: this.getHeaders() });
+  }
+
   isDeviceId(value) {
-    const expression = new RegExp(/[a-z]?[A-Z]?[0-9]?-?_?/i);
-    if (value.length === 22) if (expression.test(value)) return true;
-    return false;
+    const expression = new RegExp(/^[a-zA-Z0-9-_]{22}$/g);
+    return expression.test(value);
   }
 
   getDeviceDataById(device, params = {}) {
     const URL = this.getAPIUrl("device_id", { id: device });
     return this.GET(URL, params)
-      .then(response => Promise.resolve(response.data.data))
+      .then(response => {
+        const device = new Device().parse(response.data.data);
+        if (device) {
+          return Promise.resolve(device);
+        }
+        return Promise.reject({ message: "Invalid device received" });
+      })
       .catch(err => Promise.reject(err));
   }
 
   getDeviceDataByAlias(alias, params = {}) {
     const URL = this.getAPIUrl("device_alias", { device_alias: alias });
     return this.GET(URL, params)
-      .then(response => Promise.resolve(response.data.data))
+      .then(response => {
+        const device = new Device().parse(response.data.data);
+        if (device) {
+          return Promise.resolve(device);
+        }
+        return Promise.reject({ message: "Invalid device received" });
+      })
       .catch(err => Promise.reject(err));
   }
 
@@ -87,13 +95,17 @@ export default class ApiHandler {
     return this.GET(URL, params);
   }
 
-  setSensorSamplingById(id, interfaces, sensor_id, key, params = {}) {
+  setSensorSamplingById(data) {
+    const { id, interfaces, sensor_id, key, unset = false, params = {} } = data;
     const URL = this.getAPIUrl("interface_id_path", {
       device_id: id,
       interface: interfaces,
       sensor_id: sensor_id,
       key: key
     });
+    if (unset) {
+      return this.DELETE(URL);
+    }
     return this.PUT(URL, params);
   }
 
@@ -103,46 +115,5 @@ export default class ApiHandler {
       interface: interface_id
     });
     return this.GET(URL, params).then(response => response.data.data);
-  }
-
-  getConnectionTriggerPayload(device) {
-    return {
-      name: `connectiontrigger-${device}`,
-      device_id: device,
-      simple_trigger: {
-        type: "device_trigger",
-        on: "device_connected",
-        device_id: device
-      }
-    };
-  }
-
-  getDisconnectionTriggerPayload(device) {
-    return {
-      name: `disconnectiontrigger-${device}`,
-      device_id: device,
-      simple_trigger: {
-        type: "device_trigger",
-        on: "device_disconnected",
-        device_id: device
-      }
-    };
-  }
-
-  getValueTriggerPayload(params) {
-    const {device, interface_name, value_match_operator = "*", known_value = 0} = params;
-    return {
-      name: `valueTrigger-${device}`,
-      device_id: device,
-      simple_trigger: {
-        type: "data_trigger",
-        on: "incoming_data",
-        interface_name: interface_name,
-        interface_major: 0,
-        match_path: "/*",
-        known_value: known_value,
-        value_match_operator: value_match_operator
-      }
-    };
   }
 }

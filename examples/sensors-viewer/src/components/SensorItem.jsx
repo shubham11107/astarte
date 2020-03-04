@@ -3,13 +3,11 @@ import { Images } from "../Images";
 import React from "react";
 
 const _ = require("lodash");
-const moment = require("moment");
-require("moment/min/locales.min");
 
-function getLocaleFormat() {
+function getLocaleFormat(timestamp) {
+  const event = new Date(timestamp);
   const locale = window.navigator.language;
-  moment.locale(locale);
-  return moment.localeData().longDateFormat("LLL");
+  return event.toLocaleString(locale);
 }
 
 function listItem(item, index) {
@@ -40,9 +38,7 @@ function SensorListItem(props) {
     },
     {
       label: "Last Update",
-      value: moment(props.sensorValues[props.item].value.timestamp).format(
-        getLocaleFormat()
-      )
+      value: getLocaleFormat(props.sensorValues[props.item].value.timestamp)
     }
   ];
   return (

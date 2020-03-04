@@ -25,7 +25,10 @@ class CredentialsModal extends Component {
   componentDidUpdate(prevProps) {
     const { visible } = this.props;
     if (visible && prevProps.visible !== visible) {
-      this.setState(JSON.parse(localStorage.AstarteConfig));
+      const config = localStorage.AstarteConfig;
+      if (config) {
+        this.setState(JSON.parse(config));
+      }
     }
   }
 
@@ -42,14 +45,14 @@ class CredentialsModal extends Component {
       >
         <Modal.Body className="p-5">
           <Col xs={12}>
-            <h6 className="text-center font-weight-bold mb-4">
-              Enter Your Details
+            <h6 className="text-center mb-4">
+              <b>Enter Your Details</b>
             </h6>
           </Col>
           <Form onSubmit={this.handleSubmit}>
             <Form.Group controlId="endPoint">
-              <Form.Label className="mb-1 font-weight-bold">
-                Endpoint URL
+              <Form.Label className="mb-1">
+                <b>Endpoint URL</b>
               </Form.Label>
               <Form.Control
                 value={endpoint}
@@ -58,12 +61,12 @@ class CredentialsModal extends Component {
                 onChange={this.handleValue}
                 type="text"
                 placeholder="Enter EndPoint"
-                className="font-weight-normal rounded"
+                className="rounded"
               />
             </Form.Group>
             <Form.Group controlId="realmName">
-              <Form.Label className="mb-1 font-weight-bold">
-                Realm Name
+              <Form.Label className="mb-1">
+                <b>Realm Name</b>
               </Form.Label>
               <Form.Control
                 value={realm}
@@ -72,12 +75,14 @@ class CredentialsModal extends Component {
                 onChange={this.handleValue}
                 type="text"
                 placeholder="Enter Realm Name"
-                className="font-weight-normal rounded"
+                className="rounded"
               />
             </Form.Group>
 
             <Form.Group controlId="token">
-              <Form.Label className="mb-1 font-weight-bold">Token</Form.Label>
+              <Form.Label className="mb-1">
+                <b>Token</b>
+              </Form.Label>
               <Form.Control
                 value={token}
                 required
@@ -85,11 +90,11 @@ class CredentialsModal extends Component {
                 name="token"
                 type="text"
                 placeholder="Enter Token Number"
-                className="font-weight-normal rounded"
+                className="rounded"
               />
             </Form.Group>
             <button
-              className="mt-3 bg-sensor-theme font-14 text-white py-2 text-uppercase font-weight-normal px-4 rounded text-decoration-none"
+              className="mt-3 bg-sensor-theme font-14 text-white py-2 text-uppercase px-4 rounded text-decoration-none"
               type="submit"
             >
               Submit

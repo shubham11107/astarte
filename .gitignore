@@ -44,5 +44,6 @@ deps
 .rebar3
 apps/*/_checkouts/
 
+# Sensor Example
 examples/*/node_modules/
 examples/*/.idea/

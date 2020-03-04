@@ -1,6 +1,8 @@
 import { reverse } from "named-urls";
 import axios from "axios";
 
+const { Socket } = require("phoenix");
+
 const ENDPOINT = {
   device_alias: "devices-by-alias/:device_alias/",
   device_id: "devices/:id?",
@@ -15,6 +17,7 @@ export default class ApiHandler {
     this.endpoint = new URL(endpoint);
     this.realm = realm;
     this.version = version;
+    this.socket = null;
   }
 
   getDevice(device) {
@@ -59,8 +62,7 @@ export default class ApiHandler {
 
   isDeviceId(value) {
     const expression = new RegExp(/[a-z]?[A-Z]?[0-9]?-?_?/i);
-    if (value.length === 22) if (expression.test(value)) return true;
-    return false;
+    return value.length === 22 && expression.test(value)
   }
 
   getDeviceDataById(device, params = {}) {
@@ -105,6 +107,54 @@ export default class ApiHandler {
     return this.GET(URL, params).then(response => response.data.data);
   }
 
+  connectSocket(params) {
+    const {
+      device,
+      interfaceName,
+      onInComingData,
+      onOpenConnection = () => {},
+      onCloseConnection = () => {},
+      onErrorConnection = () => {}
+    } = params;
+    const socketUrl = this.getWSUrl();
+    const socketParams = {
+      params: {
+        realm: this.realm,
+        token: this.token
+      }
+    };
+    const phoenixSocket = new Socket(socketUrl, socketParams);
+    phoenixSocket.onOpen(onOpenConnection);
+    phoenixSocket.onError(onErrorConnection);
+    phoenixSocket.onClose(onCloseConnection);
+    phoenixSocket.onMessage(onInComingData);
+    phoenixSocket.connect();
+
+    const room_name = Math.random()
+      .toString(36)
+      .substring(7);
+    const channel = phoenixSocket.channel(
+      `rooms:${this.realm}:${device}_${room_name}`,
+      { token: this.token }
+    );
+    channel.join().receive("ok", response => {
+      channel.push("watch", this.getConnectionTriggerPayload(device));
+      channel.push("watch", this.getDisconnectionTriggerPayload(device));
+      channel.push(
+        "watch",
+        this.getValueTriggerPayload({
+          device,
+          interfaceName
+        })
+      );
+    });
+    this.socket = phoenixSocket;
+  }
+
+  disconnectSocket() {
+    this.socket.disconnect();
+  }
+
   getConnectionTriggerPayload(device) {
     return {
       name: `connectiontrigger-${device}`,
@@ -130,14 +180,19 @@ export default class ApiHandler {
   }
 
   getValueTriggerPayload(params) {
-    const {device, interface_name, value_match_operator = "*", known_value = 0} = params;
+    const {
+      device,
+      interfaceName,
+      value_match_operator = "*",
+      known_value = 0
+    } = params;
     return {
       name: `valueTrigger-${device}`,
       device_id: device,
       simple_trigger: {
         type: "data_trigger",
         on: "incoming_data",
-        interface_name: interface_name,
+        interface_name: interfaceName,
         interface_major: 0,
         match_path: "/*",
         known_value: known_value,

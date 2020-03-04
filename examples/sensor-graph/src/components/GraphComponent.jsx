@@ -1,6 +1,5 @@
 import React, { Component } from "react";
 import { Col, ListGroup, Row } from "react-bootstrap";
-import { getSensorValueById } from "../apiHandler";
 import Plot from "react-plotly.js";
 
 const _ = require("lodash");
@@ -57,11 +56,13 @@ class GraphComponent extends Component {
   }
 
   fetch() {
-    const { deviceID, interfaces, currentSensor } = this.props;
-    getSensorValueById(deviceID, interfaces, currentSensor).then(response => {
-      const data = _.takeRight(response.data.data, 1000);
-      this.setGraphValues(data);
-    });
+    const { device, interfaces, currentSensor, astarte } = this.props;
+    astarte
+      .getSensorValueById(device, interfaces, currentSensor, "value")
+      .then(response => {
+        const data = _.takeRight(response.data.data, 1000);
+        this.setGraphValues(data);
+      });
   }
 
   render() {
